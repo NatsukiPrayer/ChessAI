@@ -1,12 +1,22 @@
+from typing import TYPE_CHECKING
 from Figure import Figure
-from Field import Field
+
+if TYPE_CHECKING:
+    from Field import Field
 
 
 class Knight(Figure):
-    def __init__(self, power, position, color, imgSize, image):
-        super(Knight, self).__init__(power, position, color, imgSize, image)
+    def __init__(self, power, position, color, field):
+        super(Knight, self).__init__(
+            power,
+            position,
+            color,
+            f"C:\\ChessIMG\\Knight{'W' if color else 'B'}.png",
+            field,
+        )
+        self.letter = "N" if self.color else "n"
 
-    def calculatePossibleMoves(self, field: Field) -> None:
+    def _thisFigureMoves(self, field: "Field") -> None:
         for x, y in (
             (2, 1),
             (2, -1),

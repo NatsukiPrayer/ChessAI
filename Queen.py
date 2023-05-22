@@ -1,12 +1,22 @@
+from typing import TYPE_CHECKING
 from Figure import Figure
-from Field import Field
+
+if TYPE_CHECKING:
+    from Field import Field
 
 
 class Queen(Figure):
-    def __init__(self, power, position, color, imgSize, image):
-        super(Queen, self).__init__(power, position, color, imgSize, image)
+    def __init__(self, power, position, color, field):
+        super(Queen, self).__init__(
+            power,
+            position,
+            color,
+            f"C:\\ChessIMG\\Queen{'W' if color else 'B'}.png",
+            field,
+        )
+        self.letter = "Q" if self.color else "q"
 
-    def calculatePossibleMoves(self, field: Field) -> None:
+    def _thisFigureMoves(self, field: "Field") -> None:
         directions = [
             (1, 0),
             (0, 1),
@@ -19,11 +29,12 @@ class Queen(Figure):
         ]
         for i in range(1, 8):
             for idx, direction in enumerate(directions):
-                x = self.position[0] + direction[0] * i
-                y = self.position[1] + direction[1] * i
-                try:
-                    field.checkCell(x, y, self)
-                    if field[x][y] != None:
-                        directions.pop(idx)
-                except IndexError:
-                    directions.pop(idx)
+                if direction != (10, 10):
+                    x = self.position[0] + direction[0] * i
+                    y = self.position[1] + direction[1] * i
+                    try:
+                        field.checkCell(x, y, self)
+                        if field[x][y] != None:
+                            directions[idx] = (10, 10)
+                    except IndexError:
+                        directions[idx] = (10, 10)
