@@ -4,6 +4,7 @@ from Field import Field
 from Game import Game
 from AIPlayer import AI
 from typing import TYPE_CHECKING, Tuple
+from time import sleep
 
 if TYPE_CHECKING:
     from Player import Player
@@ -17,11 +18,11 @@ def initialize(parallSemaphore):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
-def execute(players: Tuple["Player", "Player"], color):
-    Andrey = Game(players, color)
+def execute(players: Tuple[AI, AI], color):
+    Andrey = Field(players, color)
     with _parallSemaphore:  # type: ignore
-        res = Andrey.main()
-    return res
+        Andrey.train()
+    return players
 
 
 def mainFunc(field):

@@ -1,4 +1,4 @@
-from typing import Tuple, TYPE_CHECKING
+from typing import Any, Tuple, TYPE_CHECKING
 from Pawn import Pawn
 from Rook import Rook
 from Bishop import Bishop

@@ -2,14 +2,17 @@ from copy import copy
 from typing import List, Optional, Tuple, Union, TYPE_CHECKING
 import numpy as np
 from Player import Player
+from AIPlayer import AI
 from random import randint
+from pgn_parser import parser, pgn
+import torch
 
 if TYPE_CHECKING:
     from Figure import Figure
 
 
 class Field:
-    def __init__(self, players: Tuple[Player, Player], firstColor: bool):
+    def __init__(self, players: Tuple[AI, AI], firstColor: bool):
         self.cells: List[List["Figure" | None]] = [
             [None for _ in range(8)] for _ in range(8)
         ]
@@ -26,7 +29,7 @@ class Field:
         self.turn = True
         self.loser = ""
         self.dictStates = {}
-        players = (copy(players[0]), copy(players[1]))
+        # players = (copy(players[0]), copy(players[1]))
         players[0].gameInitialiaze(firstColor, self)
         players[1].gameInitialiaze(not firstColor, self)
         self.players = players
@@ -57,6 +60,57 @@ class Field:
                 if piece != None:
                     piece.calculatePossibleMoves(self)
 
+    def train(self):
+        Polyana = self
+        while True:
+            activePlayer = Polyana.players[int(self.turn)]
+            nonActivePlayer = Polyana.players[int(not self.turn)]
+            state_old_activePlayer = Polyana.calculatePowerOnDesk(activePlayer.color)
+            state_old_activePlayer = torch.tensor(state_old_activePlayer).float()
+            state_old_activePlayer = torch.unsqueeze(state_old_activePlayer, 0)
+            action = activePlayer.net.forward(state_old_activePlayer)
+            firstLine, piece, pos = activePlayer.getMove(action)
+            action = torch.tensor(
+                [
+                    [
+                        [
+                            3 if cell != None and cell.position == piece.position else 0
+                            for cell in row
+                        ]
+                        for row in self.cells
+                    ],
+                    [
+                        [
+                            3 if cell != None and cell.position == pos else 0
+                            for cell in row
+                        ]
+                        for row in self.cells
+                    ],
+                ]
+            ).float()
+            action = torch.unsqueeze(action, 0)
+            done, movingReward, newState = Polyana.makeMove(
+                pos, piece, firstLine
+            )  # type: ignore
+            newState = torch.tensor(newState)
+            activePlayer.remember(state_old_activePlayer, action, newState, done)
+            activePlayer.train_short_memory(
+                state_old_activePlayer, action, movingReward, newState, done
+            )
+
+            if self.draw:
+                activePlayer.n_games += 1
+                nonActivePlayer.n_games += 1
+                self.players[0].changeScore(0.5)
+                self.players[1].changeScore(0.5)
+                return
+            elif self.end:
+                self.word = "white" if self.turn else "black"
+                activePlayer.n_games += 1
+                nonActivePlayer.n_games += 1
+                self.players[int(not self.turn)].changeScore(1)
+                return
+
     def __repr__(self) -> str:
         return "\n".join(
             "".join(map(lambda x: str(x) if x else "_", row)) for row in self
@@ -71,14 +125,18 @@ class Field:
         else:
             return None  # type: ignore
 
-    def makeMove(self, position, movedFigure):
+    def makeMove(self, position, movedFigure, firstLine=False):
+        movingReward = 0
+        newState = self.calculatePowerOnDesk(movedFigure.color)
         if movedFigure is None:
             return
         pos = position
         if -1 < pos[0] < 8 and -1 < pos[1] < 8:
             if list(pos) != list(movedFigure.position):
                 lastPos = movedFigure.position
-                movedFigure.move(pos)
+                reward = movedFigure.move(pos)
+                movingReward += reward
+                newState = self.calculatePowerOnDesk(movedFigure.color)
                 if lastPos != movedFigure.position:
                     self.turn = not self.turn
                     if all([player.checkFigDraw() for player in self.players]):
@@ -112,20 +170,38 @@ class Field:
             movedFigure.image_offset = 0
             movedFigure.motion = False
             movedFigure = None
+            done = False
+            if self.draw:
+                movingReward += -15
+                done = True
+            if self.end:
+                movingReward += 60
+                done = True
 
-    def calculatePowerOnDesk(self, color: bool) -> list:
-        matrix = []
-        for row in self.cells:
-            temp = []
-            for cell in row:
-                if cell is None:
-                    temp.append(0)
-                elif cell.color == color:
-                    temp.append(cell.power)
-                else:
-                    temp.append(-cell.power)
-            matrix.append(temp)
-        return matrix
+            # print(self)
+            return (done, movingReward, newState)
+
+    def calculatePowerOnDesk(self, color: bool) -> np.ndarray:
+        allMatrix = []
+        for power in range(1, 7):
+            matrix = []
+            for row in self.cells:
+                temp = []
+                for cell in row:
+                    if cell is None:
+                        temp.append(0)
+                    elif cell.power == power:
+                        if cell.color == color:
+                            temp.append(cell.power)
+                        else:
+                            temp.append(-cell.power)
+                    else:
+                        temp.append(0)
+                matrix.append(temp)
+            soqa = np.array(matrix)
+            allMatrix.append(soqa)
+        kavo = np.stack(allMatrix)
+        return kavo
 
 
 # class Field:

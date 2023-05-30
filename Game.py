@@ -1,6 +1,7 @@
 import sys
 from typing import Tuple
 import pygame
+import torch
 from Field import Field
 from Constants import *
 from copy import copy
@@ -8,10 +9,12 @@ from time import sleep
 from random import randint
 import multiprocessing as mp
 from Player import Player
+from AIPlayer import AI
+import chess.pgn
 
 
 class Game:
-    def __init__(self, players: Tuple[Player, Player], color: bool):
+    def __init__(self, players: Tuple[AI, AI], color: bool):
         self.game = pygame.init()
         self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
         self.clcok = pygame.time.Clock()
@@ -91,18 +94,33 @@ class Game:
         # my_image.fill(GREEN_TRANSPARENT)
         # self.screen.blit(my_image, (x, y))
 
+    def render(self):
+        self.redraw()
+        while True:
+            res = self.field.train()
+            self.redraw()
+            if res:
+                return res
+
     def main(self):
         while True:
-            while True:
-                Fig = self.field.chooseFig(
-                    randint(0, len(self.field.players[int(self.field.turn)].pieces) - 1)
-                )
-                if not Fig is None:
-                    self.field.makeMove(
-                        Fig.possibleMoves[randint(0, len(Fig.possibleMoves) - 1)], Fig
+            if not self.field.turn:
+                while True:
+                    print(self.field.calculatePowerOnDesk(self.field.turn))
+                    # piece, posFrom, posWhere = self.field.players[int(self.field.turn)].net.forward(self.field.calculatePowerOnDesk(self.field.turn))  # type: ignore
+
+                    Fig = self.field.chooseFig(
+                        randint(
+                            0, len(self.field.players[int(self.field.turn)].pieces) - 1
+                        )
                     )
-                    break
-            # sleep(0.2)
+                    if not Fig is None:
+                        self.field.makeMove(
+                            Fig.possibleMoves[randint(0, len(Fig.possibleMoves) - 1)],
+                            Fig,
+                        )
+                        break
+
             self.draw = self.field.draw
             self.end = self.field.end
             self.redraw()

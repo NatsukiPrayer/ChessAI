@@ -76,9 +76,11 @@ class Figure(ABC):
     def __delete__(self, instance):
         print("HEY!")
 
-    def move(self, position: Tuple[int, int]) -> bool:
+    def move(self, position: Tuple[int, int]) -> int:
+        reward = 0
         if position not in self.possibleMoves:
-            return False
+            return reward
+        reward += 1
         self.field.movesWithoutUnchangeableChanges += 1
         x, y = position
         old_x, old_y = self.position
@@ -116,7 +118,15 @@ class Figure(ABC):
             abs(position[1] - self.position[1]),
         )
         self.position = position
-        return False
+        for piece in self.field.players[int(self.color)].pieces:
+            piece.calculatePossibleMoves(self.field)
+            if (
+                self.field.players[int(not self.color)].king.position
+                in piece.possibleMoves
+            ):
+                reward = 5
+                break
+        return reward
 
     def __repr__(self) -> str:
         return self.letter
